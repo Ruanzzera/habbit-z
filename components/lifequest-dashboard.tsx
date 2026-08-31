@@ -5,13 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BarChart3, BriefcaseBusiness, Check, ChevronRight, CircleDollarSign, Flame, LayoutDashboard, ListChecks, Menu, Plus, Sparkles, Target, Trophy, UserRound, X, LogIn, LogOut, RotateCcw } from 'lucide-react'
 
-const initialHabits = [
-  { id: 'h1', title: 'Treino / Movimento', meta: 'Diário • 20 XP', done: true },
-  { id: 'h2', title: 'Ler 30 minutos', meta: 'Diário • 15 XP', done: true },
-  { id: 'h3', title: 'Planejar o dia', meta: 'Diário • 10 XP', done: false },
-]
-const activities = [['Treino / Movimento', 'Hábito concluído', '+20 XP', '09:10'], ['Landing page — Acme', 'Projeto atualizado', '+15 XP', '08:42'], ['Ler 30 minutos', 'Hábito concluído', '+15 XP', 'Ontem']]
-const heatmap = Array.from({ length: 84 }, (_, i) => (i % 9 === 0 ? 3 : i % 5 === 0 ? 2 : i % 3 === 0 ? 1 : 0))
+const initialHabits: { id: string; title: string; meta: string; done: boolean }[] = []
+const activities: [string, string, string, string][] = []
+const heatmap = Array.from({ length: 84 }, () => 0)
 
 export default function LifeQuestDashboard({ authenticatedEmail }: { authenticatedEmail: string }) {
   const router = useRouter()
@@ -44,7 +40,11 @@ export default function LifeQuestDashboard({ authenticatedEmail }: { authenticat
   async function resetAccount() {
     if (!userEmail || !window.confirm('Apagar todos os seus hábitos, projetos, atividades e XP? Esta ação não pode ser desfeita.')) return
     setBusy(true); const { error } = await createClient().rpc('reset_lifequest_account'); setBusy(false)
-    notify(error ? 'Não foi possível resetar agora.' : 'Dados da conta apagados com sucesso.')
+    if (error) { notify('Não foi possível resetar agora.'); return }
+    setHabits([])
+    notify('Dados da conta apagados com sucesso.')
+    router.replace('/onboarding')
+    router.refresh()
   }
   async function logout() { await createClient().auth.signOut(); setUserEmail(''); setAccountOpen(false); router.replace('/auth/login'); router.refresh() }
   async function toggleHabit(id: string) { const habit = habits.find((item) => item.id === id); if (!habit) return; setHabits((items) => items.map((item) => item.id === id ? { ...item, done: !item.done } : item)); notify(habit.done ? 'Hábito reaberto.' : 'Hábito concluído. +XP!'); if (userEmail && !habit.done) await createClient().from('lifequest_activity').insert({ activity_type: 'habit_completed', xp: 20 }) }
