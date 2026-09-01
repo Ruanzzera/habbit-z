@@ -66,4 +66,3 @@ export default function LifeQuestDashboard({ authenticatedEmail, profile, items,
   </main>
 }
 function Stat({ icon: Icon, label, value, note }: { icon: typeof Flame; label: string; value: string; note: string }) { return <div className="rounded-2xl border border-border bg-card p-5"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">{label}</span><span className="flex size-8 items-center justify-center rounded-lg bg-accent text-primary"><Icon className="size-4" /></span></div><p className="text-2xl font-bold tracking-tight">{value}</p><p className="mt-1 text-xs text-muted-foreground">{note}</p></div> }
-fix: declarar heatmap
