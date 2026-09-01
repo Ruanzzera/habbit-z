@@ -27,6 +27,7 @@ export default function LifeQuestDashboard({ authenticatedEmail, profile, items,
   const xpTarget = Math.max(profile.level * 300, 300)
   const projectIncome = projects.reduce((sum, project) => sum + Number(project.hourly_rate || 0) * Number(project.hours || 0) - Number(project.paid || 0), 0)
   const nav = [{ label: 'Visão geral', icon: LayoutDashboard }, { label: 'Pessoal', icon: Target }, { label: 'Trabalho', icon: BriefcaseBusiness }, { label: 'Projetos', icon: ListChecks }]
+  const heatmap = Array.from({ length: 84 }, (_, i) => (i * 7 + 3) % 4)
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2400) }
 
   async function authenticate() {
@@ -65,3 +66,4 @@ export default function LifeQuestDashboard({ authenticatedEmail, profile, items,
   </main>
 }
 function Stat({ icon: Icon, label, value, note }: { icon: typeof Flame; label: string; value: string; note: string }) { return <div className="rounded-2xl border border-border bg-card p-5"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">{label}</span><span className="flex size-8 items-center justify-center rounded-lg bg-accent text-primary"><Icon className="size-4" /></span></div><p className="text-2xl font-bold tracking-tight">{value}</p><p className="mt-1 text-xs text-muted-foreground">{note}</p></div> }
+fix: declarar heatmap
