@@ -8,8 +8,9 @@ export default async function Page() {
   if (!user) redirect('/auth/login')
   const { data: profile } = await supabase.from('lifequest_profiles').select('setup_completed, display_name, level, total_xp').eq('id', user.id).maybeSingle()
   if (!profile || profile.setup_completed !== true) redirect('/onboarding')
-  const windowStart = new Date()
-  windowStart.setDate(windowStart.getDate() - 83)
+  const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Fortaleza' })
+  const windowStart = new Date(`${todayKey}T00:00:00Z`)
+  windowStart.setUTCDate(windowStart.getUTCDate() - 83)
   const windowStartStr = windowStart.toISOString().slice(0, 10)
   const [{ data: items }, { data: projects }, { data: activity }, { data: history }] = await Promise.all([
     supabase.from('lifequest_items').select('id, title, frequency, xp_reward, completed').eq('user_id', user.id).eq('kind', 'habit').order('created_at'),
