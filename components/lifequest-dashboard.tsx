@@ -98,14 +98,22 @@ export default function LifeQuestDashboard({ authenticatedEmail, profile, items,
     notify(wasDone ? 'Reaberto.' : `Concluído. +${item.xpReward} XP!`)
     const supabase = createClient()
     await supabase.from('lifequest_items').update({ completed: !wasDone }).eq('id', id)
-    if (!userEmail || wasDone) return
+    if (!userEmail) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const todayStr = brDateKey(new Date())
-    await supabase.from('lifequest_activity').insert({ activity_type: 'habit_completed', xp: item.xpReward, occurred_on: todayStr })
-    const newTotal = totalXp + item.xpReward
-    await supabase.from('lifequest_profiles').update({ total_xp: newTotal }).eq('id', user.id)
-    setLiveXp(newTotal)
+    if (!wasDone) {
+      await supabase.from('lifequest_activity').insert({ activity_type: 'habit_completed', xp: item.xpReward, occurred_on: todayStr })
+      const newTotal = totalXp + item.xpReward
+      await supabase.from('lifequest_profiles').update({ total_xp: newTotal }).eq('id', user.id)
+      setLiveXp(newTotal)
+    } else {
+      const { data: recentEntry } = await supabase.from('lifequest_activity').select('id').eq('user_id', user.id).eq('activity_type', 'habit_completed').eq('xp', item.xpReward).eq('occurred_on', todayStr).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (recentEntry) await supabase.from('lifequest_activity').delete().eq('id', recentEntry.id)
+      const newTotal = Math.max(0, totalXp - item.xpReward)
+      await supabase.from('lifequest_profiles').update({ total_xp: newTotal }).eq('id', user.id)
+      setLiveXp(newTotal)
+    }
   }
 
   return <main className="min-h-screen bg-background text-foreground"><div className="mx-auto flex min-h-screen max-w-[1500px]">
