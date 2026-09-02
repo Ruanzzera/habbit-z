@@ -15,7 +15,7 @@ export default async function Page() {
   const monthKey = todayKey.slice(0, 7)
   const monthStart = `${monthKey}-01`
   const [{ data: items }, { data: projects }, { data: activity }, { data: history }, { data: work }, { data: workDays }] = await Promise.all([
-    supabase.from('lifequest_items').select('id, title, frequency, xp_reward, completed').eq('user_id', user.id).eq('kind', 'habit').order('created_at'),
+    supabase.from('lifequest_items').select('id, title, frequency, xp_reward, completed, kind').eq('user_id', user.id).order('created_at'),
     supabase.from('lifequest_projects').select('id, name, client_name, hourly_rate, hours, paid, status').eq('user_id', user.id).order('created_at'),
     supabase.from('lifequest_activity').select('id, activity_type, xp, occurred_on, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(6),
     supabase.from('lifequest_activity').select('activity_type, xp, occurred_on').eq('user_id', user.id).gte('occurred_on', windowStartStr),
