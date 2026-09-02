@@ -18,13 +18,19 @@ export function ProjetosView({ projects }: { projects: Project[] }) {
   const [hoursInput, setHoursInput] = useState('')
   const [payInput, setPayInput] = useState('')
 
+  const [error, setError] = useState('')
+
   async function createProject() {
     const rateValue = Number(rate.replace(',', '.'))
     if (!name.trim() || Number.isNaN(rateValue) || rateValue < 0) return
     setBusy(true)
+    setError('')
     const supabase = createClient()
-    await supabase.from('lifequest_projects').insert({ name: name.trim(), hourly_rate: rateValue, hours: 0, paid: 0, status: 'active' })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('Sessão expirada. Recarregue a página e faça login de novo.'); setBusy(false); return }
+    const { error: err } = await supabase.from('lifequest_projects').insert({ user_id: user.id, name: name.trim(), client_name: null, hourly_rate: rateValue, hours: 0, paid: 0, status: 'Em andamento' })
     setBusy(false)
+    if (err) { setError(err.message); return }
     setNewOpen(false)
     setName(''); setRate('')
     router.refresh()
@@ -72,9 +78,12 @@ export function ProjetosView({ projects }: { projects: Project[] }) {
           return (
             <div key={project.id} className="rounded-2xl border border-border bg-card p-5">
               <h3 className="font-semibold">{project.name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">R$ {Number(project.hourly_rate).toLocaleString('pt-BR')}/hora • {Number(project.hours).toLocaleString('pt-BR')}h registradas</p>
-              <p className="mt-3 text-2xl font-bold text-primary">R$ {saldo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</p>
-              <p className="text-xs text-muted-foreground">saldo a receber</p>
+              <p className="mt-3 text-3xl font-bold text-primary">{Number(project.hours).toLocaleString('pt-BR')}h</p>
+              <p className="text-xs text-muted-foreground">investidas • R$ {Number(project.hourly_rate).toLocaleString('pt-BR')}/hora</p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span>A receber: <span className="font-semibold text-foreground">R$ {saldo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span></span>
+                <span>Recebido: R$ {Number(project.paid).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
+              </div>
               <div className="mt-4 flex gap-2">
                 <button onClick={() => { setLogOpen(project.id); setPayOpen(null) }} className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent">Registrar horas</button>
                 <button onClick={() => { setPayOpen(project.id); setLogOpen(null) }} className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent">Recebi pagamento</button>
@@ -105,6 +114,7 @@ export function ProjetosView({ projects }: { projects: Project[] }) {
             <div className="flex flex-col gap-3">
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do projeto" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
               <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" placeholder="Valor por hora (R$)" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+              {error && <p className="text-xs text-destructive">{error}</p>}
               <button onClick={createProject} disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">{busy ? 'Criando...' : 'Criar projeto'}</button>
             </div>
           </div>
