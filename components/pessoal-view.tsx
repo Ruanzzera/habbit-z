@@ -3,117 +3,84 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, X } from 'lucide-react'
+import { Check, Plus, Trash2, X } from 'lucide-react'
 
-type Project = { id: string; name: string; client_name: string | null; hourly_rate: number; hours: number; paid: number; status: string }
+type Item = { id: string; title: string; meta: string; done: boolean; xpReward: number; kind: string }
 
-export function ProjetosView({ projects }: { projects: Project[] }) {
+export function PessoalView({ items, onToggle }: { items: Item[]; onToggle: (id: string) => void }) {
   const router = useRouter()
   const [newOpen, setNewOpen] = useState(false)
-  const [logOpen, setLogOpen] = useState<string | null>(null)
-  const [payOpen, setPayOpen] = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [frequency, setFrequency] = useState('Diário')
+  const [xpReward, setXpReward] = useState('10')
   const [busy, setBusy] = useState(false)
-  const [name, setName] = useState('')
-  const [rate, setRate] = useState('')
-  const [hoursInput, setHoursInput] = useState('')
-  const [payInput, setPayInput] = useState('')
-
   const [error, setError] = useState('')
 
-  async function createProject() {
-    const rateValue = Number(rate.replace(',', '.'))
-    if (!name.trim() || Number.isNaN(rateValue) || rateValue < 0) return
+  async function createItem() {
+    if (!title.trim()) return
     setBusy(true)
     setError('')
     const supabase = createClient()
-    const { error: err } = await supabase.from('lifequest_projects').insert({ name: name.trim(), hourly_rate: rateValue, hours: 0, paid: 0, status: 'active' })
+    const kind = frequency === 'Pontual' ? 'task' : 'habit'
+    const { error: err } = await supabase.from('lifequest_items').insert({ title: title.trim(), frequency, xp_reward: Number(xpReward) || 10, completed: false, kind })
     setBusy(false)
     if (err) { setError(err.message); return }
     setNewOpen(false)
-    setName(''); setRate('')
+    setTitle('')
+    setXpReward('10')
     router.refresh()
   }
 
-  async function logHours(project: Project) {
-    const hoursValue = Number(hoursInput.replace(',', '.'))
-    if (Number.isNaN(hoursValue) || hoursValue <= 0) return
+  async function removeItem(id: string) {
     setBusy(true)
     const supabase = createClient()
-    const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Fortaleza' })
-    const xp = Math.round(hoursValue * 5)
-    await supabase.from('lifequest_projects').update({ hours: Number(project.hours) + hoursValue }).eq('id', project.id)
-    await supabase.from('lifequest_activity').insert({ activity_type: 'project_hours', xp, occurred_on: todayKey })
+    const { error: err } = await supabase.from('lifequest_items').delete().eq('id', id)
     setBusy(false)
-    setLogOpen(null)
-    setHoursInput('')
-    router.refresh()
-  }
-
-  async function logPayment(project: Project) {
-    const payValue = Number(payInput.replace(',', '.'))
-    if (Number.isNaN(payValue) || payValue <= 0) return
-    setBusy(true)
-    const supabase = createClient()
-    await supabase.from('lifequest_projects').update({ paid: Number(project.paid) + payValue }).eq('id', project.id)
-    setBusy(false)
-    setPayOpen(null)
-    setPayInput('')
+    if (err) { setError(err.message); return }
     router.refresh()
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Seus projetos</h2>
-        <button onClick={() => setNewOpen(true)} className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent"><Plus className="size-4" />Novo projeto</button>
+        <div>
+          <h2 className="font-semibold">Hábitos e tarefas</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{items.length} no total</p>
+        </div>
+        <button onClick={() => setNewOpen(true)} className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent"><Plus className="size-4" />Novo</button>
       </div>
 
-      {projects.length === 0 && <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Você ainda não tem projetos. Crie o primeiro — pode ser um hobby, um canal, um freela.</p>}
+      {error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {projects.map((project) => {
-          const saldo = Number(project.hourly_rate) * Number(project.hours) - Number(project.paid)
-          return (
-            <div key={project.id} className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-semibold">{project.name}</h3>
-              <p className="mt-3 text-3xl font-bold text-primary">{Number(project.hours).toLocaleString('pt-BR')}h</p>
-              <p className="text-xs text-muted-foreground">investidas • R$ {Number(project.hourly_rate).toLocaleString('pt-BR')}/hora</p>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>A receber: <span className="font-semibold text-foreground">R$ {saldo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span></span>
-                <span>Recebido: R$ {Number(project.paid).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => { setLogOpen(project.id); setPayOpen(null) }} className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent">Registrar horas</button>
-                <button onClick={() => { setPayOpen(project.id); setLogOpen(null) }} className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent">Recebi pagamento</button>
-              </div>
-              {logOpen === project.id && (
-                <div className="mt-3 flex items-center gap-2">
-                  <input value={hoursInput} onChange={(e) => setHoursInput(e.target.value)} inputMode="decimal" placeholder="Horas" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                  <button onClick={() => logHours(project)} disabled={busy} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60">OK</button>
-                  <button onClick={() => setLogOpen(null)} aria-label="Cancelar"><X className="size-4" /></button>
-                </div>
-              )}
-              {payOpen === project.id && (
-                <div className="mt-3 flex items-center gap-2">
-                  <input value={payInput} onChange={(e) => setPayInput(e.target.value)} inputMode="decimal" placeholder="Valor recebido" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                  <button onClick={() => logPayment(project)} disabled={busy} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60">OK</button>
-                  <button onClick={() => setPayOpen(null)} aria-label="Cancelar"><X className="size-4" /></button>
-                </div>
-              )}
-            </div>
-          )
-        })}
+      {items.length === 0 && <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Você ainda não tem hábitos ou tarefas. Crie o primeiro.</p>}
+
+      <div className="flex flex-col gap-3">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center gap-3 rounded-xl border border-border/70 p-3">
+            <button onClick={() => onToggle(item.id)} className={`flex size-7 shrink-0 items-center justify-center rounded-full border ${item.done ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>{item.done && <Check className="size-4" />}</button>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-sm font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.title}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{item.meta} • {item.kind === 'task' ? 'Pontual' : 'Recorrente'}</span>
+            </span>
+            <button onClick={() => removeItem(item.id)} disabled={busy} aria-label="Remover" className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-4" /></button>
+          </div>
+        ))}
       </div>
 
       {newOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/30 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between"><h2 className="text-xl font-bold">Novo projeto</h2><button onClick={() => setNewOpen(false)} aria-label="Fechar"><X className="size-5" /></button></div>
+            <div className="mb-4 flex items-start justify-between"><h2 className="text-xl font-bold">Novo hábito ou tarefa</h2><button onClick={() => setNewOpen(false)} aria-label="Fechar"><X className="size-5" /></button></div>
             <div className="flex flex-col gap-3">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do projeto" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
-              <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" placeholder="Valor por hora (R$)" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+              <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="rounded-xl border border-border bg-background px-4 py-3 text-sm">
+                <option value="Diário">Diário (recorrente)</option>
+                <option value="Semanal">Semanal (recorrente)</option>
+                <option value="Pontual">Pontual (uma vez)</option>
+              </select>
+              <input value={xpReward} onChange={(e) => setXpReward(e.target.value)} inputMode="numeric" placeholder="XP ao concluir (ex: 10)" className="rounded-xl border border-border bg-background px-4 py-3 text-sm" />
               {error && <p className="text-xs text-destructive">{error}</p>}
-              <button onClick={createProject} disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">{busy ? 'Criando...' : 'Criar projeto'}</button>
+              <button onClick={createItem} disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">{busy ? 'Criando...' : 'Criar'}</button>
             </div>
           </div>
         </div>
