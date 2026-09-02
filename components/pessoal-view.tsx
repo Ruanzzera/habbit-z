@@ -21,8 +21,10 @@ export function PessoalView({ items, onToggle }: { items: Item[]; onToggle: (id:
     setBusy(true)
     setError('')
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('Sessão expirada. Recarregue a página e faça login de novo.'); setBusy(false); return }
     const kind = frequency === 'Pontual' ? 'task' : 'habit'
-    const { error: err } = await supabase.from('lifequest_items').insert({ title: title.trim(), frequency, xp_reward: Number(xpReward) || 10, completed: false, kind })
+    const { error: err } = await supabase.from('lifequest_items').insert({ user_id: user.id, title: title.trim(), kind, category: 'Pessoal', frequency, xp_reward: Number(xpReward) || 10, completed: false })
     setBusy(false)
     if (err) { setError(err.message); return }
     setNewOpen(false)
